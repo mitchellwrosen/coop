@@ -1,0 +1,6 @@
+flags: {}
+packages:
+- '.'
+extra-deps:
+- 'zeromq4-haskell-0.6.3'
+resolver: nightly-2015-06-15
