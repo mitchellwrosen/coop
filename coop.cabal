@@ -23,6 +23,8 @@ executable coop-server
                      , async
                      , bytestring
                      , exceptions
+                     , managed
+                     , optparse-applicative
                      , pipes
                      , process
                      , semigroups
@@ -37,6 +39,7 @@ executable coop-server
                     , LambdaCase
                     , OverloadedLists
                     , OverloadedStrings
+                    , RecordWildCards
   ghc-options: -Wall -O2
 
 executable coop-client
@@ -47,6 +50,7 @@ executable coop-client
                      , async
                      , bytestring
                      , exceptions
+                     , optparse-applicative
                      , pipes
                      , random
                      , semigroups
