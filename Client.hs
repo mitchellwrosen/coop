@@ -30,15 +30,18 @@ main = do
 
         let in_callback _ =
                 liftIO BS.getLine >>=
-                  sendMulti publisher . serializeMessage . Request client_id
+                  sendMulti publisher . serializeMessage . MsgStdin client_id
 
             out_callback _ =
                 receiveMulti subscriber >>= parseMessage >>= \case
-                    Request client_id' msg ->
+                    MsgStdin client_id' msg ->
                         unless (client_id == client_id') $
                             liftIO . BS.putStrLn $ "[" <> client_id' <> "]: " <> msg
 
-                    Response _ msg ->
+                    MsgStdout msg ->
+                        liftIO (BS.putStr msg)
+
+                    MsgStderr msg ->
                         liftIO (BS.putStr msg)
 
         fix $ \loop -> do

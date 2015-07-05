@@ -101,17 +101,17 @@ main' Args{..} = do
                 void $ liftIO getLine
 
                 let in_callback _ = do
-                        req@(Request _ msg) <- parseRequest =<< receiveMulti subscriber
-                        liftIO $ BS.hPutStrLn stdinWriteH msg
-                        sendMulti publisher (serializeMessage req)
+                        msg@(MsgStdin _ contents) <- parseMessageStdin =<< receiveMulti subscriber
+                        liftIO $ BS.hPutStrLn stdinWriteH contents
+                        sendMulti publisher (serializeMessage msg)
 
                     out_callback _ =
                         hGetAvailable stdoutReadH >>=
-                          sendMulti publisher . serializeMessage . Response Stdout
+                          sendMulti publisher . serializeMessage . MsgStdout
 
                     err_callback _ =
                         hGetAvailable stderrReadH >>=
-                          sendMulti publisher . serializeMessage . Response Stderr
+                          sendMulti publisher . serializeMessage . MsgStderr
 
                 fix $ \loop -> do
                     evts <- concat <$>

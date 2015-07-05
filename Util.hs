@@ -12,23 +12,21 @@ instance Exception ParseException
 
 type ClientId = ByteString
 
-data Outfd = Stdout | Stderr
-
 data Message
-    = Request ClientId ByteString
-    | Response Outfd ByteString
+    = MsgStdin ClientId ByteString
+    | MsgStdout ByteString
+    | MsgStderr ByteString
 
 parseMessage :: MonadThrow m => [ByteString] -> m Message
-parseMessage ["RESPONSE", "STDOUT", msg] = return (Response Stdout msg)
-parseMessage ["RESPONSE", "STDERR", msg] = return (Response Stderr msg)
-parseMessage msg = parseRequest msg
+parseMessage ["STDOUT", msg] = return (MsgStdout msg)
+parseMessage ["STDERR", msg] = return (MsgStderr msg)
+parseMessage msg = parseMessageStdin msg
 
-parseRequest :: MonadThrow m => [ByteString] -> m Message
-parseRequest ["REQUEST", client_id, msg] = return (Request client_id msg)
-parseRequest _ = throwM ParseException
+parseMessageStdin :: MonadThrow m => [ByteString] -> m Message
+parseMessageStdin ["STDIN", client_id, msg] = return (MsgStdin client_id msg)
+parseMessageStdin _ = throwM ParseException
 
 serializeMessage :: Message -> NonEmpty ByteString
-serializeMessage (Request client_id msg) = ["REQUEST", client_id, msg]
-serializeMessage (Response Stdout msg)   = ["RESPONSE", "STDOUT", msg]
-serializeMessage (Response Stderr msg)   = ["RESPONSE", "STDERR", msg]
-
+serializeMessage (MsgStdin client_id msg) = ["STDIN", client_id, msg]
+serializeMessage (MsgStdout msg) = ["STDOUT", msg]
+serializeMessage (MsgStderr msg) = ["STDERR", msg]
