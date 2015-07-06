@@ -2,20 +2,32 @@
 
 `coop-server` and `coop-client` allow you to pair-debug programs without having to share a screen and a keyboard.
 
+### Building
+
+    stack build
+
+### Installing
+
+    stack install
+
 ### Usage
 
-Start a `coop-server`: 
+Start a `coop-server`:
 
     $ coop-server gdb a.out
-    Spawning 'gdb a.out'...
+    Spawning 'gdb a.out'
+    Subscribing to input on 'tcp://127.0.0.1:14448'
+    Publishing input and output on 'tcp://127.0.0.1:14449'
     Press enter when client(s) are ready.
 
 And any number of clients:
 
     $ coop-client
-    
-Now, all of `gdb a.out`'s output on stdout and stderr will be forwarded to every client.
-Input from all clients will also be forwarded to each other, preceded by a 4-byte randomly
+    Publishing input on 'tcp://127.0.0.1:14448'
+    Subscribing to output on 'tcp://127.0.0.1:14449'
+
+Now, all of `gdb a.out`'s output on stdout and stderr will be sent to every client.
+Input from all clients will also be sent to each other, preceded by a 4-byte randomly
 generated identifier. Clients can connect and disconnect at any time.
 
 ### Sample session
@@ -37,15 +49,21 @@ int main() {
     return 0;
 }
 ```
-    
+
 ##### Server
 
     $ coop-server
     Spawning 'gdb a.out'...
+    Subscribing to input on 'tcp://127.0.0.1:14448'
+    Publishing input and output on 'tcp://127.0.0.1:14449'
     Press enter when client(s) are ready.
-    
+
 ##### Client 1
 
+    $ coop-client
+    Publishing input on 'tcp://127.0.0.1:14448'
+    Subscribing to output on 'tcp://127.0.0.1:14449'
+    ...
     Reading symbols from a.out...done.
     (gdb) [fjdt]: b main
     Breakpoint 1 at 0x40050e: file foo.c, line 4.
@@ -67,9 +85,12 @@ int main() {
     10	    return 0;
     (gdb) [fjdt]: n
     11	}
-    
+
 ##### Client 2
-    
+
+    $ coop-client
+    Publishing input on 'tcp://127.0.0.1:14448'
+    Subscribing to output on 'tcp://127.0.0.1:14449'
     Reading symbols from a.out...done.
     (gdb) b main
     Breakpoint 1 at 0x40050e: file foo.c, line 4.
@@ -91,8 +112,3 @@ int main() {
     10	    return 0;
     (gdb) n
     11	}
-    
-
-### TODO
-
-Currently the server binds to hard-coded ports on localhost, so you can't actually connect to another machine, yet :)

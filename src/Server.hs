@@ -118,7 +118,7 @@ main' Args{..} = do
     mkPublisher :: ZMQ z (Socket z Pub)
     mkPublisher = do
         let publisher_endpoint = printf "tcp://%s:%d" argEndpoint (argPort+1)
-        liftIO $ printf "Publishing output on '%s'\n" publisher_endpoint
+        liftIO $ printf "Publishing input and output on '%s'\n" publisher_endpoint
 
         publisher <- socket Pub
         bind publisher publisher_endpoint
