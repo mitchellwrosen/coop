@@ -1,4 +1,4 @@
-module Main where
+module Server where
 
 import Util
 
@@ -10,7 +10,6 @@ import           Data.ByteString.Char8  (ByteString)
 import qualified Data.ByteString.Char8  as BS
 import           Data.Function
 import           Data.Monoid
-import           Options.Applicative
 import           System.IO
 import           System.Posix.IO
 import           System.Posix.Types     (Fd)
@@ -18,30 +17,12 @@ import           System.Process         hiding (createPipe)
 import           System.ZMQ4.Monadic
 import           Text.Printf
 
-data Args = Args
-    { argEndpoint :: String
-    , argPort     :: Int
-    , argCommand  :: [String]
-    }
+serverMain :: String -> Int -> [String] -> IO ()
+serverMain endpoint port command = do
+    hSetBuffering stdin  LineBuffering
+    hSetBuffering stdout NoBuffering
+    hSetBuffering stderr NoBuffering
 
-main :: IO ()
-main = execParser opts >>= main'
-  where
-    opts :: ParserInfo Args
-    opts = info (helper <*> parseArgs) $ mconcat
-        [ fullDesc
-        , progDesc "Start a server running <PROG ARG...> on <ENDPOINT:PORT>"
-        , header "Coop server v0.1.0.0"
-        ]
-
-    parseArgs :: Parser Args
-    parseArgs = Args
-        <$> endpointOption
-        <*> portOption
-        <*> some (strArgument (metavar "PROG [ARG...]"))
-
-main' :: Args -> IO ()
-main' Args{..} = do
     -- Handles are not compatible with System.ZMQ4.Monadic.poll, so make raw
     -- file descriptors instead.
     (stdinReadFd,  stdinWriteFd)  <- createPipe
@@ -66,9 +47,9 @@ main' Args{..} = do
             hSetBuffering stderrReadH  NoBuffering
             hSetBuffering stderrWriteH NoBuffering
 
-            printf "Spawning '%s'\n" (unwords argCommand)
+            printf "Spawning '%s'\n" (unwords command)
 
-            let (x:xs) = argCommand
+            let (x:xs) = command
             void $ createProcess (proc x xs)
                        { std_in  = UseHandle stdinReadH
                        , std_out = UseHandle stdoutWriteH
@@ -76,30 +57,40 @@ main' Args{..} = do
                        }
 
             runZMQ $ do
+                ident      <- mkRandomId
                 subscriber <- mkSubscriber
                 publisher  <- mkPublisher
 
                 liftIO . putStrLn $ "Press enter when client(s) are ready."
                 void $ liftIO getLine
 
-                let in_callback _ = do
+                let stdin_callback _ = do
+                        bytes <- liftIO BS.getLine
+                        liftIO $ BS.hPutStrLn stdinWriteH bytes
+                        sendMulti publisher . serializeMessage . MsgStdin ident $ bytes
+
+                    client_in_callback _ = do
                         msg@(MsgStdin _ contents) <- parseMessageStdin =<< receiveMulti subscriber
                         liftIO $ BS.hPutStrLn stdinWriteH contents
+                        displayMessage msg
                         sendMulti publisher (serializeMessage msg)
 
-                    out_callback _ =
-                        hGetAvailable stdoutReadH >>=
-                          sendMulti publisher . serializeMessage . MsgStdout
+                    proc_out_callback _ = do
+                        bytes <- hGetAvailable stdoutReadH
+                        liftIO $ BS.putStr bytes
+                        sendMulti publisher . serializeMessage . MsgStdout $ bytes
 
-                    err_callback _ =
-                        hGetAvailable stderrReadH >>=
-                          sendMulti publisher . serializeMessage . MsgStderr
+                    proc_err_callback _ = do
+                        bytes <- hGetAvailable stderrReadH
+                        liftIO $ BS.hPutStr stderr bytes
+                        sendMulti publisher . serializeMessage . MsgStderr $ bytes
 
                 fix $ \loop -> do
                     evts <- concat <$>
-                        poll (-1) [ Sock subscriber   [In] (Just in_callback)
-                                  , File stdoutReadFd [In] (Just out_callback)
-                                  , File stderrReadFd [In] (Just err_callback)
+                        poll (-1) [ File stdInput     [In] (Just stdin_callback)
+                                  , Sock subscriber   [In] (Just client_in_callback)
+                                  , File stdoutReadFd [In] (Just proc_out_callback)
+                                  , File stderrReadFd [In] (Just proc_err_callback)
                                   ]
 
                     unless (Err `elem` evts)
@@ -107,7 +98,7 @@ main' Args{..} = do
   where
     mkSubscriber :: ZMQ z (Socket z Sub)
     mkSubscriber = do
-        let subscriber_endpoint = printf "tcp://%s:%d" argEndpoint argPort
+        let subscriber_endpoint = printf "tcp://%s:%d" endpoint port
         liftIO $ printf "Subscribing to input on '%s'\n" subscriber_endpoint
 
         subscriber <- socket Sub
@@ -117,7 +108,7 @@ main' Args{..} = do
 
     mkPublisher :: ZMQ z (Socket z Pub)
     mkPublisher = do
-        let publisher_endpoint = printf "tcp://%s:%d" argEndpoint (argPort+1)
+        let publisher_endpoint = printf "tcp://%s:%d" endpoint (port+1)
         liftIO $ printf "Publishing input and output on '%s'\n" publisher_endpoint
 
         publisher <- socket Pub

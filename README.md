@@ -1,68 +1,33 @@
 ### Overview
 
-`coop-server` and `coop-client` allow you to pair-debug programs without having to share a screen and a keyboard.
+`coop` allows you to pair-debug programs without having to share a screen and a keyboard.
+
+Simply run `coop <program> <arg>...` to start a server running `<program> <arg>`
+interactively, and attach additional clients with `coop`. Clients can come and go at any time.
+
+Optionally specify an endpoint and port with `--endpoint` and `--port`. See `coop --help` for
+more info.
 
 ### Building
 
     stack build
 
-### Installing
+### Installing (local user)
 
     stack install
-
-### Usage
-
-Start a `coop-server`:
-
-    $ coop-server gdb a.out
-    Spawning 'gdb a.out'
-    Subscribing to input on 'tcp://127.0.0.1:14448'
-    Publishing input and output on 'tcp://127.0.0.1:14449'
-    Press enter when client(s) are ready.
-
-And any number of clients:
-
-    $ coop-client
-    Publishing input on 'tcp://127.0.0.1:14448'
-    Subscribing to output on 'tcp://127.0.0.1:14449'
-
-Now, all of `gdb a.out`'s output on stdout and stderr will be sent to every client.
-Input from all clients will also be sent to each other, preceded by a 4-byte randomly
-generated identifier. Clients can connect and disconnect at any time.
 
 ### Sample session
 
 (You'll have to use your imagination to untangle the order these commands were input)
 
-##### foo.c
+##### Server/Client 1
 
-```c
-#include <stdio.h>
-
-int main() {
-    printf("Hello, world!\n");
-    int a = 5;
-    a += 1;
-    a += 2;
-    a += 4;
-    printf("a = %d\n", a);
-    return 0;
-}
-```
-
-##### Server
-
-    $ coop-server
-    Spawning 'gdb a.out'...
-    Subscribing to input on 'tcp://127.0.0.1:14448'
-    Publishing input and output on 'tcp://127.0.0.1:14449'
+    $ coop --endpoint 10.0.0.14 --port 5678 gdb a.out
+    Spawning 'gdb a.out'
+    Subscribing to input on 'tcp://10.0.0.14:5678'
+    Publishing input and output on 'tcp://10.0.0.14:5679'
     Press enter when client(s) are ready.
 
-##### Client 1
-
-    $ coop-client
-    Publishing input on 'tcp://127.0.0.1:14448'
-    Subscribing to output on 'tcp://127.0.0.1:14449'
     ...
     Reading symbols from a.out...done.
     (gdb) [fjdt]: b main
@@ -88,9 +53,10 @@ int main() {
 
 ##### Client 2
 
-    $ coop-client
-    Publishing input on 'tcp://127.0.0.1:14448'
-    Subscribing to output on 'tcp://127.0.0.1:14449'
+    $ coop --endpoint 10.0.0.14 --port 5678
+    Publishing input on 'tcp://10.0.0.14:5678'
+    Subscribing to output on 'tcp://10.0.0.14:5679'
+    ...
     Reading symbols from a.out...done.
     (gdb) b main
     Breakpoint 1 at 0x40050e: file foo.c, line 4.
@@ -112,3 +78,19 @@ int main() {
     10	    return 0;
     (gdb) n
     11	}
+
+###### foo.c
+
+```c
+#include <stdio.h>
+
+int main() {
+    printf("Hello, world!\n");
+    int a = 5;
+    a += 1;
+    a += 2;
+    a += 4;
+    printf("a = %d\n", a);
+    return 0;
+}
+```
