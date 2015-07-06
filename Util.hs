@@ -4,6 +4,10 @@ import Control.Monad.Catch
 import Data.ByteString.Char8 (ByteString)
 import Data.List.NonEmpty
 import Data.Typeable
+import Options.Applicative
+
+--------------------------------------------------------------------------------
+-- Message parser
 
 data ParseException = ParseException
     deriving (Show, Typeable)
@@ -30,3 +34,29 @@ serializeMessage :: Message -> NonEmpty ByteString
 serializeMessage (MsgStdin client_id msg) = ["STDIN", client_id, msg]
 serializeMessage (MsgStdout msg) = ["STDOUT", msg]
 serializeMessage (MsgStderr msg) = ["STDERR", msg]
+
+--------------------------------------------------------------------------------
+-- Shared options
+
+endpointOption :: Parser String
+endpointOption = strOption $ mconcat
+    [ short 'e'
+    , long "endpoint"
+    , metavar "ENDPOINT"
+    , value "127.0.0.1"
+    , showDefault
+    , help "Endpoint"
+    ]
+
+portOption :: Parser Int
+portOption = intOption $ mconcat
+    [ short 'p'
+    , long "port"
+    , metavar "PORT"
+    , value 14448
+    , showDefault
+    , help "Port"
+    ]
+  where
+    intOption :: Mod OptionFields Int -> Parser Int
+    intOption = option auto

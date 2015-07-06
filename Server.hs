@@ -30,33 +30,15 @@ main = execParser opts >>= main'
     opts :: ParserInfo Args
     opts = info (helper <*> parseArgs) $ mconcat
         [ fullDesc
-        , progDesc ("Start a server running <PROG ARG...> on <ENDPOINT:PORT> "
-                    ++ "(input) and <ENDPOINT+PORT+1> (output)")
+        , progDesc "Start a server running <PROG ARG...> on <ENDPOINT:PORT>"
         , header "Coop server v0.1.0.0"
         ]
 
     parseArgs :: Parser Args
     parseArgs = Args
-        <$> strOption (mconcat
-            [ short 'e'
-            , long "endpoint"
-            , metavar "ENDPOINT"
-            , value "127.0.0.1"
-            , showDefault
-            , help "Endpoint"
-            ])
-        <*> intOption (mconcat
-            [ short 'p'
-            , long "port"
-            , metavar "PORT"
-            , value 14448
-            , showDefault
-            , help "Input port (output port will be PORT + 1)"
-            ])
+        <$> endpointOption
+        <*> portOption
         <*> some (strArgument (metavar "PROG [ARG...]"))
-      where
-        intOption :: Mod OptionFields Int -> Parser Int
-        intOption = option auto
 
 main' :: Args -> IO ()
 main' Args{..} = do
@@ -126,7 +108,7 @@ main' Args{..} = do
     mkSubscriber :: ZMQ z (Socket z Sub)
     mkSubscriber = do
         let subscriber_endpoint = printf "tcp://%s:%d" argEndpoint argPort
-        liftIO $ printf "Binding input socket to '%s'\n" subscriber_endpoint
+        liftIO $ printf "Subscribing to input on '%s'\n" subscriber_endpoint
 
         subscriber <- socket Sub
         bind subscriber subscriber_endpoint
@@ -136,7 +118,7 @@ main' Args{..} = do
     mkPublisher :: ZMQ z (Socket z Pub)
     mkPublisher = do
         let publisher_endpoint = printf "tcp://%s:%d" argEndpoint (argPort+1)
-        liftIO $ printf "Binding output socket to '%s'\n" publisher_endpoint
+        liftIO $ printf "Publishing output on '%s'\n" publisher_endpoint
 
         publisher <- socket Pub
         bind publisher publisher_endpoint
